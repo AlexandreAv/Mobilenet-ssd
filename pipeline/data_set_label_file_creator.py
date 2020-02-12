@@ -1,7 +1,7 @@
 import json
 from progressbar import ProgressBar
 
-with open(r"C:\dataset\COCO dataset\annotations\instances_val2014.json") as json_data:
+with open("C:\dataset\COCO dataset\\annotations\instances_val2014.json") as json_data:
     data_dict = json.load(json_data)
     data_set = []
 
@@ -25,6 +25,6 @@ with open(r"C:\dataset\COCO dataset\annotations\instances_val2014.json") as json
                     data_set.append({'id': id, 'file_name': x['file_name'], 'category_id': y['category_id'], 'bbox': y['bbox']})
                     break
 
-    with open(r'C:\dataset\COCO dataset\annotations\labels\labels_val.json', 'a') as file_labels:
-        file_labels.write(json.dumps(data_set))
-        # TODO TESTER CETTE FONCTION ET COMPRENDRE POURQUOI ELLE FAIT QUE DLA MERDE
+    with open('C:\dataset\COCO dataset\\annotations\labels\labels_val.json', 'a') as file_labels:
+        for data in data_set:
+            file_labels.write(json.dumps(data))
