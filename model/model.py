@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Conv2D, AveragePooling2D, Dense, Softmax, BatchNormalization, ReLU
 from layers.depthwise_conv_block import DepthWiseConvBlock
+import pdb
 
 
 class MobileNetV1(Model):
@@ -44,7 +45,6 @@ class MobileNetV1(Model):
             self.softmax = Softmax()
 
     def call(self, inputs):
-        # pdb.set_trace()
         x = self.input_layer(inputs)
         x = self.batch_norm_layer(x)
         x = self.relu_layer(x)
