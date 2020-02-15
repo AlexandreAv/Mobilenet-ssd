@@ -6,7 +6,7 @@ import pdb
 
 
 class MobileNetV1(Model):
-    def __init__(self, input_shape, alpha=1.25, depth_multiplier=1, include_top=True, classes=1000):
+    def __init__(self, input_shape, alpha=1.25, depth_multiplier=1, include_top=True, classes=37):
         super(MobileNetV1, self).__init__()
         self.include_top = include_top
 

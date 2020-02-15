@@ -44,25 +44,49 @@ class DataFlowCreator:
 
         try:
             with open(valid_label_path) as valid_data:
-                self.train_set = json.loads(valid_data.read())
+                self.valid_set = json.loads(valid_data.read())
         except IOError:
             print("Le fichier suivant n'a pas pu être ouvert, : " + valid_label_path)
 
         self.is_fed = True
         self.prepare_data()
 
+    @staticmethod
+    def get_label_list(label):
+        data = list(zip(*label))
+        li = data[2]
+        label_list = []
+
+        for category in li:
+            if category not in label_list:
+                label_list.append(category)
+
+        return label_list
+
     def prepare_data(self):
         if self.randomize:
             self.randomize_data()
 
         self.init_seq_augmenters()
+        self.train_set = self.dict_to_list(self.train_set)
+        self.valid_set = self.dict_to_list(self.valid_set)
+
+        self.encoder.fit(self.get_label_list(self.train_set))
+
         self.train_set = self.make_batch(self.train_set, self.batch_size)
         self.valid_set = self.make_batch(self.valid_set, self.batch_size)
-        pdb.set_trace()
 
     def randomize_data(self):
         self.train_set = shuffle(self.train_set)
         self.valid_set = shuffle(self.valid_set)
+
+    @staticmethod
+    def dict_to_list(list_of_dict):
+        li = []
+        for x in list_of_dict:
+            li.append(list(x.values()))
+
+        return list(li)
 
     def init_seq_augmenters(self):
         n, h, w = self.image_size
@@ -103,7 +127,12 @@ class DataFlowCreator:
         length_to_split = [batch_size for i in range(x)]
 
         iter_train_set = iter(input_list)
-        return [list(islice(iter_train_set, elem)) for elem in length_to_split]
+        li = [list(islice(iter_train_set, elem)) for elem in length_to_split]
+
+        for i in range(len(li)):
+            li[i] = list(zip(*li[i]))
+
+        return li
 
     def get_train_set(self):
         try:
@@ -131,21 +160,20 @@ class DataFlowCreator:
 
     def load_image_set(self, batch_data, path):
         data = []
-        for x in batch_data:  # [id, filename, category, bbox]
-            id, filename, category, bbox = x.values()
+        for i in range(len(batch_data[0])):  # [id, filename, category, bbox]
+            id = batch_data[0][i]
+            filename = batch_data[1][i]
+            category = batch_data[2][i]
+            bbox = batch_data[3][i]
             with Image.open("{}/{}".format(path, filename)) as img:
                 img = np.array(img, dtype=np.float32)
                 data.append([img, category, bbox])
 
         data = list(zip(*data))
         data[0] = convert_to_tensor(self.pipeline_augmenters(np.array(data[0])), dtype=float64)
-        data[1] = convert_to_tensor(np.array(data[1]), dtype=int64)
+        data[1] = convert_to_tensor(self.encoder.transform(np.array(data[1])), dtype=float64)
 
         return data
-
-
-
-
 
 
 
