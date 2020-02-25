@@ -47,14 +47,17 @@ def test(batch_image, batch_labels):
 
 
 for epoch in range(EPOCH):
-    for batch_data in data_flow.get_train_set():
-        train(batch_data[0], batch_data[1])
+    i = 0
+    for batch_data in data_flow.get_valid_set(): # remettre train_set
+        # train(batch_data[0], batch_data[1])
+        print(i)
+        i += 1
 
-    print('{}; train loss: {}, train accuracy: {}'.format(str(epoch), metrics_train_loss.result(),
-                                                          metrics_train_acc.result()))
-
-    for batch_data in data_flow.get_valid_set():
-        test(batch_data[0], batch_data[1])
-
-    print('{}; train loss: {}, train accuracy: {}'.format(str(epoch), metrics_valid_loss.result(),
-                                                          metrics_valid_acc.result()))
+    # print('{}; train loss: {}, train accuracy: {}'.format(str(epoch), metrics_train_loss.result(),
+    #                                                       metrics_train_acc.result()))
+    #
+    # for batch_data in data_flow.get_valid_set():
+    #   test(batch_data[0], batch_data[1])
+    #
+    # print('{}; train loss: {}, train accuracy: {}'.format(str(epoch), metrics_valid_loss.result(),
+    #                                                       metrics_valid_acc.result()))

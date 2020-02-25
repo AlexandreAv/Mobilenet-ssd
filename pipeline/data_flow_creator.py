@@ -1,18 +1,20 @@
 import json
 from random import shuffle
 from tensorflow import convert_to_tensor
-from tensorflow import float64, int64
+from tensorflow import float32, float64, int64, int32
 from itertools import islice
-import imgaug as ia
 import imgaug.augmenters as iaa
+from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 from PIL import Image
 import numpy as np
 from sklearn.preprocessing import LabelBinarizer
+from random import uniform
 import pdb
 
 
 class DataFlowCreator:
-    def __init__(self, images_train_path="./", images_valid_path="./", batch_size=32, image_size=None, randomize=False, flipping=False, rotation=False, shearing=False, zooming=False,
+    def __init__(self, images_train_path="./", images_valid_path="./", batch_size=32, image_size=None,
+                 randomize=False, flipping=False, rotation=False, shearing=False, zooming=False,
                  contrast=False, brightness=False, mirror=False, expand=False, gaussian_blur=False, saturation=False):
         self.images_train_path = images_train_path
         self.images_valid_path = images_valid_path
@@ -90,35 +92,51 @@ class DataFlowCreator:
 
     def init_seq_augmenters(self):
         n, h, w = self.image_size
-        augmenters = [iaa.Resize({"height": h, "width": w})]
 
-        if self.flipping:
-            augmenters.append(iaa.Fliplr(1.0))
+        rotate_range = 0
+        shear_range = 0
+        scale_range = 1
+        flipping_range = 0
+        saturation_range = 1
+        brightness_range = 1
+        contrast_range = 1
+        gaussian_blur_range = 0
 
         if self.rotation:
-            augmenters.append(iaa.Affine(rotate=(-45, 45)))
+            rotate_range = self.rotation
 
         if self.shearing:
-            augmenters.append(iaa.Affine(shear=(-16, 16)))
+            shear_range = self.shearing
 
         if self.zooming:
-            augmenters.append(iaa.ScaleY((0.5, 1.5)))
+            scale_range = self.zooming
+
+        if self.flipping:
+            flipping_range = self.flipping
 
         if self.saturation:
-            augmenters.append(iaa.MultiplySaturation((0.5, 1.5)))
+            saturation_range = uniform(1, self.saturation)
 
         if self.brightness:
-            augmenters.append(iaa.MultiplyAndAddToBrightness(mul=(0.5, 1.5), add=(-30, 30)))
+            brightness_range = uniform(1, self.brightness)
 
         if self.contrast:
-            augmenters.append(iaa.GammaContrast((0.5, 2.0)))
+            contrast_range = self.contrast
 
         if self.gaussian_blur:
-            augmenters.append(iaa.GaussianBlur(sigma=(0.0, 3.0)))
+            gaussian_blur_range = self.gaussian_blur
 
-        self.seq = iaa.Sequential(augmenters)
+        self.seq = iaa.Sequential([iaa.Resize({"height": h, "width": w}),
+                                   iaa.Affine(rotate=rotate_range, shear=shear_range, scale=scale_range),
+                                   iaa.Fliplr(flipping_range),
+                                   iaa.imgcorruptlike.Saturate(saturation_range),
+                                   iaa.imgcorruptlike.Brightness(brightness_range),
+                                   iaa.GammaContrast(contrast_range),
+                                   iaa.GaussianBlur(gaussian_blur_range)])
 
     def pipeline_augmenters(self, batch_image):
+        print(batch_image.shape)
+
         return self.seq(images=batch_image)
 
     @staticmethod
@@ -143,8 +161,7 @@ class DataFlowCreator:
             print("La classe n'a pas été rempli")
 
         else:
-            for batch_data in self.train_set:
-                yield self.load_image_set(batch_data, self.images_train_path)
+            return DataSetIterator(self.train_set, self.images_train_path, self.seq, self.encoder)
 
     def get_valid_set(self):
         try:
@@ -155,38 +172,59 @@ class DataFlowCreator:
             print("La classe n'a pas été rempli")
 
         else:
-            for batch_data in self.valid_set:
-                yield self.load_image_set(batch_data, self.images_valid_path)
+            return DataSetIterator(self.valid_set, self.images_valid_path, self.seq, self.encoder)
+
+
+class DataSetIterator:
+    def __init__(self, data_set, images_path, augmenters, encoder):
+        self.data_set = data_set
+        self.images_path = images_path
+        self.augmenters = augmenters
+        self.encoder = encoder
+
+    def __iter__(self):
+        for batch_data in self.data_set:
+            yield self.load_image_set(batch_data, self.images_path)
 
     def load_image_set(self, batch_data, path):
         data = []
+        list_bbox = []
+
         for i in range(len(batch_data[0])):  # [id, filename, category, bbox]
-            id = batch_data[0][i]
             filename = batch_data[1][i]
             category = batch_data[2][i]
             bbox = batch_data[3][i]
             with Image.open("{}/{}".format(path, filename)) as img:
-                img = np.array(img, dtype=np.float32)
+                img = np.array(img)
+
+                if len(img.shape) == 2:
+                    dim = np.zeros((img.shape[0], img.shape[1]))
+                    img = np.stack((img, dim, dim), axis=2)
+                    img = img.astype(np.uint8)
+
+                list_bbox.append(BoundingBoxesOnImage([BoundingBox(x1=bbox[0], y1=bbox[1], x2=bbox[2], y2=bbox[3])], img.shape)) # TODO amener la gestion de plusieurs boudings boxe par images
+
                 data.append([img, category, bbox])
 
         data = list(zip(*data))
-        data[0] = convert_to_tensor(self.pipeline_augmenters(np.array(data[0])), dtype=float64)
-        data[1] = convert_to_tensor(self.encoder.transform(np.array(data[1])), dtype=float64)
+        pdb.set_trace()
+        data[0] = convert_to_tensor((self.augmenters.augment_images(data[0])), dtype=float32)
+        data[2] = convert_to_tensor(self.augmenters.augment_bounding_boxes(data[2]), dtype=int32)
+        data[1] = convert_to_tensor(self.encoder.transform(np.array(data[1])), dtype=int32)
+
 
         return data
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # @staticmethod
+    # def regroup_list_by_indices(list_x):
+    #     x = []
+    #     y = []
+    #     z = []
+    #
+    #     for element in list_x:
+    #         x.append(element[0])
+    #         y.append(element[1])
+    #         z.append(element[2])
+    #
+    #     return [x, y, z]
 
