@@ -7,7 +7,7 @@ import pdb
 
 class MobileNetV1(Model):
     def __init__(self, input_shape, alpha=1.25, depth_multiplier=1, include_top=True, classes=37):
-        super(MobileNetV1, self).__init__()
+        super(Model, self).__init__()
         self.include_top = include_top
 
         self.input_layer = Conv2D(32, kernel_size=(3, 3), strides=(2, 2), padding='same', input_shape=input_shape)
